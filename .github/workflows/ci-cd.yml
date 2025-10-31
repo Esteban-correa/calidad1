@@ -14,39 +14,46 @@ jobs:
   build:
     name: Build Application
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+
     defaults:
       run:
         working-directory: ./couriersync-backend
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-      
+          cache: 'maven'
+
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      
+
       - name: Make mvnw executable
         run: chmod +x ./mvnw
-      
-      - name: Build application
-        run: ./mvnw clean package -DskipTests
-      
+
+      - name: Build, test and analyze (SonarCloud)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./mvnw clean verify sonar:sonar \
+            -Dsonar.login=${SONAR_TOKEN}
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: jar-artifact
-          path: couriersync-backend/target/*.jar
+          path: target/*.jar
           retention-days: 1
 
   deploy-development:
@@ -54,11 +61,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Deploy to Render (Development)
         run: |
           curl -X POST \
@@ -73,11 +80,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Deploy to Render (Production)
         run: |
           curl -X POST \
@@ -86,9 +93,9 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{}' \
             "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys"
-      
+
       - name: Notify deployment success
         if: success()
         run: |
-          echo "🚀 Production deployment successful!"
+          echo "Production deployment successful!"
           echo "Service URL: https://courier-sync-feature3-backend-1.onrender.com"
