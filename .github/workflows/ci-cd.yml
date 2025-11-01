@@ -17,13 +17,14 @@ jobs:
 
     defaults:
       run:
+        # Esto asume que tu pom.xml está en la subcarpeta 'couriersync-backend'
         working-directory: ./couriersync-backend
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Necesario para SonarCloud
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -31,7 +32,7 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-
+          
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
@@ -45,15 +46,19 @@ jobs:
       - name: Build, test and analyze (SonarCloud)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          ./mvnw clean verify sonar:sonar \
-            -Dsonar.login=${SONAR_TOKEN}
+        # --- CORRECCIÓN 1 ---
+        # El -Dsonar.login ya no es necesario.
+        # El plugin lee el SONAR_TOKEN desde la variable de entorno 'env:'
+        run: ./mvnw clean verify sonar:sonar
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: jar-artifact
-          path: target/*.jar
+          # --- CORRECCIÓN 2 ---
+          # Los pasos 'uses:' no respetan el 'working-directory'
+          # por lo que debes especificar la ruta completa al artifact.
+          path: ./couriersync-backend/target/*.jar
           retention-days: 1
 
   deploy-development:
