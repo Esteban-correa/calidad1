@@ -2,6 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
@@ -20,10 +21,10 @@
 	<properties>
 		<java.version>21</java.version>
 
+		<!-- SonarCloud -->
 		<sonar.projectKey>JhonUsuga_courier-sync-feature3-backend-C</sonar.projectKey>
 		<sonar.organization>jhonusuga</sonar.organization>
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
-
 		<sonar.exclusions>**/src/main/resources/**,**/target/**</sonar.exclusions>
 		<sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 
@@ -47,7 +48,7 @@
 	</dependencyManagement>
 
 	<dependencies>
-		<!-- Spring starters -->
+		<!-- Spring Boot Starters -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
@@ -85,25 +86,57 @@
 			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
 
-		<!-- Devtools -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
-			<optional>true</optional>
-		</dependency>
-
-		<!-- Postgres -->
+		<!-- PostgreSQL -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Flyway -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+			<version>${flyway.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+			<version>${flyway.version}</version>
+		</dependency>
+
+		<!-- GraphQL Extended Scalars -->
+		<dependency>
+			<groupId>com.graphql-java</groupId>
+			<artifactId>graphql-java-extended-scalars</artifactId>
+			<version>${graphql.ext.scalars.version}</version>
+		</dependency>
+
+		<!-- JWT -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-jose</artifactId>
+		</dependency>
+
+		<!-- dotenv -->
+		<dependency>
+			<groupId>me.paulschwarz</groupId>
+			<artifactId>spring-dotenv</artifactId>
+			<version>4.0.0</version>
+		</dependency>
+
 		<!-- Lombok -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- Devtools -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
 			<optional>true</optional>
 		</dependency>
 
@@ -139,40 +172,18 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Flyway -->
-		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
-			<version>${flyway.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-database-postgresql</artifactId>
-			<version>${flyway.version}</version>
-		</dependency>
-
-		<!-- GraphQL extended scalars -->
-		<dependency>
-			<groupId>com.graphql-java</groupId>
-			<artifactId>graphql-java-extended-scalars</artifactId>
-			<version>${graphql.ext.scalars.version}</version>
-		</dependency>
-
-		<!-- dotenv -->
-		<dependency>
-			<groupId>me.paulschwarz</groupId>
-			<artifactId>spring-dotenv</artifactId>
-			<version>4.0.0</version>
-		</dependency>
+		
 	</dependencies>
 
 	<build>
 		<plugins>
-			<!-- compila con los processors de lombok -->
+			<!-- Compilación -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
 					<annotationProcessorPaths>
 						<path>
 							<groupId>org.projectlombok</groupId>
@@ -182,7 +193,7 @@
 				</configuration>
 			</plugin>
 
-			<!-- JaCoCo para que Sonar muestre coverage -->
+			<!-- Jacoco -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -218,5 +229,4 @@
 			</plugin>
 		</plugins>
 	</build>
-	
 </project>
