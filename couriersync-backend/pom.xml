@@ -21,13 +21,16 @@
 	<properties>
 		<java.version>21</java.version>
 
-		<!-- SonarCloud -->
-		<sonar.projectKey>JhonUsuga_courier-sync-feature3-backend-C</sonar.projectKey>
-		<sonar.organization>jhonusuga</sonar.organization>
+		<sonar.projectKey>Esteban-correa_calidad1</sonar.projectKey>
+		<sonar.organization>esteban-correa</sonar.organization>
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
-		<sonar.exclusions>**/src/main/resources/**,**/target/**</sonar.exclusions>
+		
 		<sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-
+		
+		<sonar.exclusions>
+			**/config/**,
+			**/CouriersyncBackendApplication.java
+		</sonar.exclusions>
 		<flyway.version>11.13.1</flyway.version>
 		<graphql.ext.scalars.version>24.0</graphql.ext.scalars.version>
 	</properties>
