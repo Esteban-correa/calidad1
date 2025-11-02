@@ -2,18 +2,21 @@ package com.ep18.couriersync.backend.customers.service;
 
 import com.ep18.couriersync.backend.common.exception.ConflictException;
 import com.ep18.couriersync.backend.common.exception.NotFoundException;
+import com.ep18.couriersync.backend.common.exception.ValidationException;
 import com.ep18.couriersync.backend.customers.domain.*;
 import com.ep18.couriersync.backend.customers.dto.UsuarioDTOs.*;
 import com.ep18.couriersync.backend.customers.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
 
 import java.time.LocalDate;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class UsuarioServiceTest {
@@ -39,19 +42,23 @@ class UsuarioServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
+        // Departamento
         departamento = new Departamento();
         departamento.setIdDepartamento(1);
         departamento.setNombreDepartamento("Departamento 1");
 
+        // Ciudad
         ciudad = new Ciudad();
         ciudad.setIdCiudad(1);
         ciudad.setNombreCiudad("Ciudad 1");
         ciudad.setDepartamento(departamento);
 
+        // Rol
         rol = new Rol();
         rol.setIdRol(1);
         rol.setNombreRol("Admin");
 
+        // Usuario
         usuario = new Usuario();
         usuario.setIdUsuario(1);
         usuario.setNombre("Juan Perez");
@@ -64,6 +71,7 @@ class UsuarioServiceTest {
         usuario.setRol(rol);
     }
 
+    // ------------------ CREATE ------------------
     @Test
     void testCreateUsuario_Success() {
         CreateUsuarioInput input = new CreateUsuarioInput(
@@ -113,11 +121,38 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void testCreateUsuario_CiudadNoPerteneceADepartamento() {
+        CreateUsuarioInput input = new CreateUsuarioInput(
+                "Maria Lopez",
+                "maria@example.com",
+                "0987654321",
+                null,
+                "Direccion X",
+                2, // id ciudad
+                departamento.getIdDepartamento(), // id depto esperado
+                rol.getIdRol()
+        );
+
+        Departamento otroDepto = new Departamento();
+        otroDepto.setIdDepartamento(999);
+
+        Ciudad otraCiudad = new Ciudad();
+        otraCiudad.setIdCiudad(2);
+        otraCiudad.setDepartamento(otroDepto);
+
+        when(usuarioRepo.existsByCorreoIgnoreCase(input.correo())).thenReturn(false);
+        when(ciudadRepo.findById(2)).thenReturn(Optional.of(otraCiudad));
+        when(departamentoRepo.findById(departamento.getIdDepartamento())).thenReturn(Optional.of(departamento));
+        when(rolRepo.findById(rol.getIdRol())).thenReturn(Optional.of(rol));
+
+        assertThrows(ValidationException.class, () -> usuarioService.create(input));
+    }
+
+    // ------------------ FIND ------------------
+    @Test
     void testFindById_Success() {
         when(usuarioRepo.findById(1)).thenReturn(Optional.of(usuario));
-
         UsuarioView view = usuarioService.findById(1);
-
         assertNotNull(view);
         assertEquals(usuario.getNombre(), view.nombre());
     }
@@ -128,6 +163,7 @@ class UsuarioServiceTest {
         assertThrows(NotFoundException.class, () -> usuarioService.findById(99));
     }
 
+    // ------------------ UPDATE ------------------
     @Test
     void testUpdateUsuario_Success() {
         UpdateUsuarioInput input = new UpdateUsuarioInput(
@@ -151,6 +187,45 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void testUpdateUsuario_ChangeFk() {
+        UpdateUsuarioInput input = new UpdateUsuarioInput(
+                1,
+                "Juan FK",
+                "juan@example.com",
+                null,
+                null,
+                null,
+                2,
+                2,
+                2
+        );
+
+        Departamento nuevoDepto = new Departamento();
+        nuevoDepto.setIdDepartamento(2);
+
+        Ciudad nuevaCiudad = new Ciudad();
+        nuevaCiudad.setIdCiudad(2);
+        nuevaCiudad.setDepartamento(nuevoDepto); // ⚠️ Muy importante
+
+        Rol nuevoRol = new Rol();
+        nuevoRol.setIdRol(2);
+
+        when(usuarioRepo.findById(1)).thenReturn(Optional.of(usuario));
+        when(ciudadRepo.findById(2)).thenReturn(Optional.of(nuevaCiudad));
+        when(departamentoRepo.findById(2)).thenReturn(Optional.of(nuevoDepto));
+        when(rolRepo.findById(2)).thenReturn(Optional.of(nuevoRol));
+        when(usuarioRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        UsuarioView view = usuarioService.update(input);
+
+        assertEquals("Juan FK", view.nombre());
+        assertEquals(2, view.idCiudad());
+        assertEquals(2, view.idDepartamento());
+        assertEquals(2, view.idRol());
+    }
+
+    // ------------------ DELETE ------------------
+    @Test
     void testDeleteUsuario_Success() {
         when(usuarioRepo.existsById(1)).thenReturn(true);
         doNothing().when(usuarioRepo).deleteById(1);
@@ -166,6 +241,15 @@ class UsuarioServiceTest {
         assertFalse(result);
     }
 
+    @Test
+    void testDeleteUsuario_DataIntegrityViolation() {
+        when(usuarioRepo.existsById(1)).thenReturn(true);
+        doThrow(DataIntegrityViolationException.class).when(usuarioRepo).deleteById(1);
+
+        assertThrows(ConflictException.class, () -> usuarioService.delete(1));
+    }
+
+    // ------------------ SEARCH / LIST ------------------
     @Test
     void testSearchUsuarios() {
         Page<Usuario> page = new PageImpl<>(List.of(usuario));
@@ -212,11 +296,11 @@ class UsuarioServiceTest {
     }
 
     @Test
-    void testListByRol() {
-        Page<Usuario> page = new PageImpl<>(List.of(usuario));
-        when(usuarioRepo.findAllByRol_IdRol(eq(1), any(Pageable.class))).thenReturn(page);
+    void testListByDepartamento_Empty() {
+        Page<Usuario> emptyPage = new PageImpl<>(Collections.emptyList());
+        when(usuarioRepo.findAllByDepartamento_IdDepartamento(eq(999), any(Pageable.class))).thenReturn(emptyPage);
 
-        var result = usuarioService.listByRol(1, 0, 10);
-        assertEquals(1, result.content().size());
+        var result = usuarioService.listByDepartamento(999, 0, 10);
+        assertTrue(result.content().isEmpty());
     }
 }
