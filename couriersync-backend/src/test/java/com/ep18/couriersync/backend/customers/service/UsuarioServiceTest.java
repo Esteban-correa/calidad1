@@ -169,11 +169,19 @@ class UsuarioServiceTest {
     @Test
     void testSearchUsuarios() {
         Page<Usuario> page = new PageImpl<>(List.of(usuario));
-        when(usuarioRepo.findByNombreContainingIgnoreCase(anyString(), any(Pageable.class)))
-                .thenReturn(page);
+        when(usuarioRepo.findByNombreContainingIgnoreCase(anyString(), any(Pageable.class))).thenReturn(page);
 
         var result = usuarioService.search("Juan", 0, 10);
         assertEquals(1, result.content().size());
+    }
+
+    @Test
+    void testSearchUsuarios_Empty() {
+        Page<Usuario> emptyPage = new PageImpl<>(Collections.emptyList());
+        when(usuarioRepo.findByNombreContainingIgnoreCase(anyString(), any(Pageable.class))).thenReturn(emptyPage);
+
+        var result = usuarioService.search("NoExiste", 0, 10);
+        assertTrue(result.content().isEmpty());
     }
 
     @Test
@@ -183,6 +191,15 @@ class UsuarioServiceTest {
 
         var result = usuarioService.listByCiudad(1, 0, 10);
         assertEquals(1, result.content().size());
+    }
+
+    @Test
+    void testListByCiudad_Empty() {
+        Page<Usuario> emptyPage = new PageImpl<>(Collections.emptyList());
+        when(usuarioRepo.findAllByCiudad_IdCiudad(eq(999), any(Pageable.class))).thenReturn(emptyPage);
+
+        var result = usuarioService.listByCiudad(999, 0, 10);
+        assertTrue(result.content().isEmpty());
     }
 
     @Test
