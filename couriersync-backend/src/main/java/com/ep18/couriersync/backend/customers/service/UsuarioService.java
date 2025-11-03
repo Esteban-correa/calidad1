@@ -35,43 +35,77 @@ public class UsuarioService {
     private final DepartamentoRepository departamentoRepo;
     private final RolRepository rolRepo;
 
-    // -------------------------------
-    // CREATE
-    // -------------------------------
     @Transactional
     public UsuarioView create(CreateUsuarioInput in) {
-        validarCorreoUnico(in.correo(), null);
+        // Unicidad: correo
+        if (usuarioRepo.existsByCorreoIgnoreCase(in.correo()))
+            throw new ConflictException("El correo ya está registrado");
 
-        Ciudad ciudad = getCiudad(in.idCiudad());
-        Departamento depto = getDepartamento(in.idDepartamento());
-        Rol rol = getRol(in.idRol());
+        // FKs
+        Ciudad ciudad = ciudadRepo.findById(in.idCiudad())
+                .orElseThrow(() -> new NotFoundException("Ciudad no encontrada"));
+        Departamento depto = departamentoRepo.findById(in.idDepartamento())
+                .orElseThrow(() -> new NotFoundException("Departamento no encontrado"));
+        Rol rol = rolRepo.findById(in.idRol())
+                .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
 
+        // Coherencia ciudad-departamento
         UsuarioValidator.assertCiudadPerteneceADepartamento(ciudad, depto.getIdDepartamento());
 
-        Usuario u = mapToUsuario(in, ciudad, depto, rol);
+        Usuario u = new Usuario();
+        u.setNombre(in.nombre());
+        u.setCorreo(in.correo());
+        u.setTelefono(in.telefono());
+        u.setFechaRegistro(in.fechaRegistro() != null ? in.fechaRegistro() : LocalDate.now());
+        u.setDetalleDireccion(in.detalleDireccion());
+        u.setCiudad(ciudad);
+        u.setDepartamento(depto);
+        u.setRol(rol);
 
         return toView(usuarioRepo.save(u));
     }
 
-    // -------------------------------
-    // UPDATE
-    // -------------------------------
     @Transactional
     public UsuarioView update(UpdateUsuarioInput in) {
         Usuario u = usuarioRepo.findById(in.idUsuario())
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
 
-        validarCorreoUnico(in.correo(), u.getCorreo());
+        if (in.correo()!=null && !in.correo().equalsIgnoreCase(u.getCorreo())
+                && usuarioRepo.existsByCorreoIgnoreCase(in.correo())) {
+            throw new ConflictException("El correo ya está registrado");
+        }
 
-        actualizarCamposSimples(u, in);
-        actualizarRelaciones(u, in);
+        // Cambios simples
+        if (in.nombre()!=null) u.setNombre(in.nombre());
+        if (in.correo()!=null) u.setCorreo(in.correo());
+        if (in.telefono()!=null) u.setTelefono(in.telefono());
+        if (in.fechaRegistro()!=null) u.setFechaRegistro(in.fechaRegistro());
+        if (in.detalleDireccion()!=null) u.setDetalleDireccion(in.detalleDireccion());
+
+        // Cambios de FKs
+        Ciudad ciudad = (in.idCiudad()!=null)
+                ? ciudadRepo.findById(in.idCiudad()).orElseThrow(() -> new NotFoundException("Ciudad no encontrada"))
+                : u.getCiudad();
+
+        Departamento depto = (in.idDepartamento()!=null)
+                ? departamentoRepo.findById(in.idDepartamento()).orElseThrow(() -> new NotFoundException("Departamento no encontrado"))
+                : u.getDepartamento();
+
+        if (in.idCiudad()!=null || in.idDepartamento()!=null) {
+            UsuarioValidator.assertCiudadPerteneceADepartamento(ciudad, depto.getIdDepartamento());
+            u.setCiudad(ciudad);
+            u.setDepartamento(depto);
+        }
+
+        if (in.idRol()!=null) {
+            Rol rol = rolRepo.findById(in.idRol())
+                    .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
+            u.setRol(rol);
+        }
 
         return toView(usuarioRepo.save(u));
     }
 
-    // -------------------------------
-    // READ
-    // -------------------------------
     @Transactional(readOnly = true)
     public UsuarioView findById(Integer id) {
         return usuarioRepo.findById(id).map(this::toView)
@@ -106,9 +140,6 @@ public class UsuarioService {
         return PageMapper.map(p, this::toView);
     }
 
-    // -------------------------------
-    // DELETE
-    // -------------------------------
     @Transactional
     public boolean delete(Integer id) {
         if (!usuarioRepo.existsById(id)) return false;
@@ -117,66 +148,6 @@ public class UsuarioService {
             return true;
         } catch (DataIntegrityViolationException e) {
             throw new ConflictException("No se puede eliminar: existen registros relacionados");
-        }
-    }
-
-    // -------------------------------
-    // HELPERS
-    // -------------------------------
-    private void validarCorreoUnico(String nuevoCorreo, String correoActual) {
-        if (nuevoCorreo != null && !nuevoCorreo.equalsIgnoreCase(correoActual)
-                && usuarioRepo.existsByCorreoIgnoreCase(nuevoCorreo)) {
-            throw new ConflictException("El correo ya está registrado");
-        }
-    }
-
-    private Ciudad getCiudad(Integer idCiudad) {
-        return ciudadRepo.findById(idCiudad)
-                .orElseThrow(() -> new NotFoundException("Ciudad no encontrada"));
-    }
-
-    private Departamento getDepartamento(Integer idDepto) {
-        return departamentoRepo.findById(idDepto)
-                .orElseThrow(() -> new NotFoundException("Departamento no encontrado"));
-    }
-
-    private Rol getRol(Integer idRol) {
-        return rolRepo.findById(idRol)
-                .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
-    }
-
-    private Usuario mapToUsuario(CreateUsuarioInput in, Ciudad ciudad, Departamento depto, Rol rol) {
-        Usuario u = new Usuario();
-        u.setNombre(in.nombre());
-        u.setCorreo(in.correo());
-        u.setTelefono(in.telefono());
-        u.setFechaRegistro(in.fechaRegistro() != null ? in.fechaRegistro() : LocalDate.now());
-        u.setDetalleDireccion(in.detalleDireccion());
-        u.setCiudad(ciudad);
-        u.setDepartamento(depto);
-        u.setRol(rol);
-        return u;
-    }
-
-    private void actualizarCamposSimples(Usuario u, UpdateUsuarioInput in) {
-        if (in.nombre() != null) u.setNombre(in.nombre());
-        if (in.correo() != null) u.setCorreo(in.correo());
-        if (in.telefono() != null) u.setTelefono(in.telefono());
-        if (in.fechaRegistro() != null) u.setFechaRegistro(in.fechaRegistro());
-        if (in.detalleDireccion() != null) u.setDetalleDireccion(in.detalleDireccion());
-    }
-
-    private void actualizarRelaciones(Usuario u, UpdateUsuarioInput in) {
-        if (in.idCiudad() != null || in.idDepartamento() != null) {
-            Ciudad ciudad = (in.idCiudad() != null) ? getCiudad(in.idCiudad()) : u.getCiudad();
-            Departamento depto = (in.idDepartamento() != null) ? getDepartamento(in.idDepartamento()) : u.getDepartamento();
-            UsuarioValidator.assertCiudadPerteneceADepartamento(ciudad, depto.getIdDepartamento());
-            u.setCiudad(ciudad);
-            u.setDepartamento(depto);
-        }
-
-        if (in.idRol() != null) {
-            u.setRol(getRol(in.idRol()));
         }
     }
 
